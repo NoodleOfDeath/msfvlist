@@ -1,0 +1,139 @@
+#!/bin/bash
+
+this=$(basename $0)
+
+usage() {
+    echo "MSFVList v1.0 (c) by NoodleOfDeath"
+    echo
+    echo "Simple tool to list msfvenom payloads, encoders, nops, platforms, architectures, encrypts, formats, and payload options backed by a cached memory."
+    echo
+    echo "Usage: $this [-h|--help] [-f filter] [-uv] <payloads | encoders | nops | platforms | archs | encrypts | formats | all | -p payload>"
+    echo "Example: $this -v linux # prints all payloads with linux in the name verbosely"
+    echo
+    echo "Options:"
+    echo "   -h|--help              displays this help message"
+    echo "   -p|--payload payload   payload to list options for"
+    echo "   -f|--filter filter     grep pattern to filter output by"
+    echo "   -u|--update            forces cache update"
+    echo "   -v|--verbose           verbose output when displaying payloads, encoders,  and nops"
+    exit 0
+}
+
+args=()
+
+while (( "$#" )); do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -f|--filter)
+            filter=$2
+            shift 2
+            ;;
+        -p|--payload)
+            payload=$2
+            shift 2
+            ;;
+        -u|--update)
+            update=true
+            shift
+            ;;
+        -v|--verbose)
+            verbose=1
+            shift
+            ;;
+#        -vv)
+#            verbose=2
+#            shift
+#            ;;
+        -*)
+            echo "Error: Unsupported flag $1" >&2
+            exit 1
+            ;;
+        *)
+            args=( "${args[@]}" "$1" )
+            shift
+            ;;
+    esac
+done
+
+target=${args[0]}
+
+if [ -z "$filter" ]; then
+    filter="."
+fi
+
+lines=0
+if [ $verbose > 0 ]; then
+    lines=2
+fi
+
+cachedir=/var/cache/msfvenom
+if [ ! -d $cachedir ]; then
+    mkdir $cachedir
+fi
+
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+output() {
+    cache=$1
+    if [ ! -f $cache ]; then
+        echo "Unable to read cache from $cache"
+        exit 1
+    fi
+    while IFS="" read -r p || [ -n "$p" ]; do
+        item=$(echo $p | cut -d " " -f 1)
+        if [ $verbose > 0 ]; then
+            echo -e ${GREEN}$item${NC}
+            echo "  "$(echo $p | cut -d " " -f 2-)
+            echo
+        else
+            echo $item
+        fi
+    done < $cache | grep $filter -A $lines
+}
+
+if [ -z "$target" ]; then
+
+    if [ -z "$payload" ]; then
+        echo "No msfvenom list target or payload specified. Unable to list options."
+        usage
+        exit 1
+    fi
+    optcache=$cachedir/$(echo $payload | sed 's/\//_/g').cache
+    if [ $update ] || [ ! -f $optcache ]; then
+        echo "Generating options cache for $payload"
+        msfvenom -p $payload --list-options > $optcache
+    fi
+    if [ -f $optcache ]; then
+        cat $optcache
+    else
+        echo "Unable to find cache for payload $payload"
+    fi
+
+else
+
+    if [ "$target" != "all" ] && [ "${target: -1}" != "s" ]; then
+        target=$target"s"
+    fi
+
+    case "$target" in
+        all|archs|encrypts|formats|platforms)
+            if [ $update ] || [ ! -f $cachedir/$target.cache ]; then
+                echo "Generating $target cache"
+                msfvenom --list $target > $cachedir/$target.cache
+            fi
+            cat $cachedir/$target.cache
+            ;;
+        *)
+            if [ $update ] || [ ! -f $cachedir/$target.cache ]; then
+                echo "Generating $target cache"
+                msfvenom --list $target | grep  '^\s*\w\+/\w\+' > $cachedir/$target.cache
+            fi
+            output $cachedir/$target.cache
+            ;;
+    esac
+
+fi
