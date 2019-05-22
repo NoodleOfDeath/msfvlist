@@ -7,7 +7,7 @@ This executable is dependent on the metasploit-framework and the msfvenom execut
 ## Usage
 
 ```
-MSFVList v1.0 (c) by NoodleOfDeath
+MsfVList v1.0 (c) by NoodleOfDeath
 
 Simple tool to list msfvenom payloads, encoders, nops, platforms, architectures, encrypts, formats, and payload options backed by a cached memory.
 

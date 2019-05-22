@@ -7,7 +7,7 @@ if [ -z $(which msfvenom) ]; then
 fi
 
 usage() {
-    echo "MSFVList v1.0 (c) by NoodleOfDeath"
+    echo "MsfVList v1.0 (c) by NoodleOfDeath"
     echo
     echo "Simple tool to list msfvenom payloads, encoders, nops, platforms, architectures, encrypts, formats, and payload options backed by a cached memory."
     echo
@@ -109,7 +109,7 @@ else
 
     case "$target" in
         all|archs|encrypts|formats|platforms)
-            if [ $update ] || [ ! -f $cachedir/$target.cache ]; then
+            if [ $update == true ] || [ ! -f $cachedir/$target.cache ]; then
                 echo "Generating $target cache"
                 msfvenom --list $target > $cachedir/$target.cache
             fi
