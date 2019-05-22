@@ -2,45 +2,54 @@
 
 this=$(basename $0)
 
+if [ -z $(which msfvenom) ]; then
+	echo "MsfVenom not found in the PATH. You may need to manually add msfvenom to the executable path or (re-)install the metasploit framework."
+fi
+
 usage() {
     echo "MSFVList v1.0 (c) by NoodleOfDeath"
     echo
     echo "Simple tool to list msfvenom payloads, encoders, nops, platforms, architectures, encrypts, formats, and payload options backed by a cached memory."
     echo
-    echo "Usage: $this [-h|--help] [-f filter] [-uv] <payloads | encoders | nops | platforms | archs | encrypts | formats | all | -p payload>"
-    echo "Example: $this -v linux # prints all payloads with linux in the name verbosely"
+    echo "Usage: $this [-h|--help] [-uv] <payloads | encoders | nops | platforms | archs | encrypts | formats | all | -p payload> [filter...]"
+    echo "Example: $this payloads -v linux # prints all payloads with linux in the name verbosely"
     echo
     echo "Options:"
-    echo "   -h|--help              displays this help message"
-    echo "   -f|--filter filter     grep pattern to filter output by"
-    echo "   -p|--payload payload   payload to list options for"
-    echo "   -u|--update            forces cache update"
-    echo "   -v|--verbose           verbose output when displaying payloads, encoders,  and nops"
+    echo "  -h|--help"
+    echo "      displays this help message"
+    echo "  -u|--update"
+    echo "      forces cache update"
+    echo "  -v|--verbose"
+    echo "      verbose output when displaying payloads, encoders,  and nops"
+    echo "  -p|--payload payload"
+    echo "      payload to list options for"
     exit 0
 }
 
 args=()
+update=false
+verbose=0
 
 while (( "$#" )); do
     case "$1" in
         -h|--help) usage;;
-        -f|--filter) filter=$2; shift 2;;
-        -p|--payload) payload=$2; shift 2;;
         -u|--update) update=true; shift;;
         -v|--verbose) verbose=1; shift;;
+        -p|--payload) payload=$2; shift 2;;
         -*) echo "Error: Unsupported flag $1" >&2; exit 1;;
         *) args=( "${args[@]}" "$1" ); shift;;
     esac
 done
 
 target=${args[0]}
+filter=${args[1]}
 
 if [ -z "$filter" ]; then
-    filter="."
+    filter='.'
 fi
 
 lines=0
-if [ $verbose > 0 ]; then
+if [[ $verbose -gt 0 ]]; then
     lines=2
 fi
 
@@ -58,16 +67,20 @@ output() {
         echo "Unable to read cache from $cache"
         exit 1
     fi
-    while IFS="" read -r p; do
+	filter=" grep -i -e $filter"
+	if [[ $lines -gt 0 ]]; then
+		filter+=" -A $lines"
+	fi
+    cat $cache | eval $filter | while IFS="" read -r p; do
         item=$(echo $p | cut -d " " -f 1)
-        if [ $verbose > 0 ]; then
-            echo -e ${GREEN}$item${NC}
+        if [[ $verbose -gt 0 ]]; then
+            echo -e "${GREEN}$item${NC}"
             echo "  "$(echo $p | cut -d " " -f 2-)
             echo
         else
             echo $item
         fi
-    done < $cache | grep $filter -A $lines
+    done
 }
 
 if [ -z "$target" ]; then
@@ -103,7 +116,7 @@ else
             cat $cachedir/$target.cache
             ;;
         *)
-            if [ $update ] || [ ! -f $cachedir/$target.cache ]; then
+            if [ $update == true ] || [ ! -f $cachedir/$target.cache ]; then
                 echo "Generating $target cache"
                 msfvenom --list $target | grep  '^\s*\w\+/\w\+' > $cachedir/$target.cache
             fi
